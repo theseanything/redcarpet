@@ -81,15 +81,17 @@ rndr_hrule(struct buf *ob, void *opaque)
 static void
 rndr_list(struct buf *ob, const struct buf *text, int flags, int start_num, void *opaque)
 {
-	BLOCK_CALLBACK("list", 2, buf2str(text),
-			(flags & MKD_LIST_ORDERED) ? CSTR2SYM("ordered") : CSTR2SYM("unordered"));
+	BLOCK_CALLBACK("list", 3, buf2str(text),
+			(flags & MKD_LIST_ORDERED) ? CSTR2SYM("ordered") : CSTR2SYM("unordered"),
+			INT2FIX(start_num));
 }
 
 static void
 rndr_listitem(struct buf *ob, const struct buf *text, int flags, int start_num, void *opaque)
 {
-	BLOCK_CALLBACK("list_item", 2, buf2str(text),
-			(flags & MKD_LIST_ORDERED) ? CSTR2SYM("ordered") : CSTR2SYM("unordered"));
+	BLOCK_CALLBACK("list_item", 3, buf2str(text),
+			(flags & MKD_LIST_ORDERED) ? CSTR2SYM("ordered") : CSTR2SYM("unordered"),
+			INT2FIX(start_num));
 }
 
 static void

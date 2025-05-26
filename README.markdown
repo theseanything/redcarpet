@@ -236,6 +236,8 @@ Therefore, make sure that your renderer has at least a `paragraph` method
 implemented. If the method for a document element is not implemented, the
 block will be skipped.
 
+Note: The `list` and `list_item` callbacks now include a `start_num` integer parameter. For ordered lists, this indicates the starting number (e.g., `5` if the list began with `5. item`; `0` for `0. item`; `1` for `1. item`). For unordered lists, `start_num` is `1`. Custom renderers overriding these methods should be updated to accept this additional parameter.
+
 Example:
 
 ~~~~ ruby
@@ -253,8 +255,8 @@ end
 * footnote_def(content, number)
 * header(text, header_level)
 * hrule()
-* list(contents, list_type)
-* list_item(text, list_type)
+* list(contents, list_type, start_num)
+* list_item(text, list_type, start_num)
 * paragraph(text)
 * table(header, body)
 * table_row(content)
