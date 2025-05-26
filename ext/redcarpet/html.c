@@ -395,16 +395,26 @@ rndr_link(struct buf *ob, const struct buf *link, const struct buf *title, const
 }
 
 static void
-rndr_list(struct buf *ob, const struct buf *text, int flags, void *opaque)
+rndr_list(struct buf *ob, const struct buf *text, int flags, int start_num, void *opaque)
 {
 	if (ob->size) bufputc(ob, '\n');
-	bufput(ob, flags & MKD_LIST_ORDERED ? "<ol>\n" : "<ul>\n", 5);
+	
+	if (flags & MKD_LIST_ORDERED) {
+		if (start_num > 1 || start_num == 0) {
+			bufprintf(ob, "<ol start=\"%d\">\n", start_num);
+		} else {
+			BUFPUTSL(ob, "<ol>\n");
+		}
+	} else {
+		BUFPUTSL(ob, "<ul>\n");
+	}
+	
 	if (text) bufput(ob, text->data, text->size);
 	bufput(ob, flags & MKD_LIST_ORDERED ? "</ol>\n" : "</ul>\n", 6);
 }
 
 static void
-rndr_listitem(struct buf *ob, const struct buf *text, int flags, void *opaque)
+rndr_listitem(struct buf *ob, const struct buf *text, int flags, int start_num, void *opaque)
 {
 	BUFPUTSL(ob, "<li>");
 	if (text) {

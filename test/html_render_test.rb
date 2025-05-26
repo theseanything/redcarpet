@@ -268,7 +268,211 @@ class HTMLRenderTest < Redcarpet::TestCase
   def test_escape_entities_removal_from_anchor
     output = render("# Foo's & Bar's", with: [:with_toc_data])
     result = %(<h1 id="foos-bars">Foo&#39;s &amp; Bar&#39;s</h1>)
-
     assert_equal result, output
+  end
+
+  def test_ordered_list_start_attribute_basic
+    markdown = <<-Markdown.strip_heredoc
+      5. First item
+      6. Second item
+      7. Third item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li>First item</li>
+      <li>Second item</li>
+      <li>Third item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_with_start_1
+    markdown = <<-Markdown.strip_heredoc
+      1. First item
+      2. Second item
+      3. Third item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol>
+      <li>First item</li>
+      <li>Second item</li>
+      <li>Third item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_ignores_subsequent_numbers
+    markdown = <<-Markdown.strip_heredoc
+      5. First item
+      99. Second item (number ignored)
+      1. Third item (number ignored)
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li>First item</li>
+      <li>Second item (number ignored)</li>
+      <li>Third item (number ignored)</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_with_zero
+    markdown = <<-Markdown.strip_heredoc
+      0. Zero item
+      1. First item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="0">
+      <li>Zero item</li>
+      <li>First item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_large_number
+    markdown = <<-Markdown.strip_heredoc
+      999. Large number
+      1000. Another item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="999">
+      <li>Large number</li>
+      <li>Another item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_interrupted_list
+    markdown = <<-Markdown.strip_heredoc
+      5. First part
+      6. Second part
+
+      Some interrupting text
+
+      8. Continuation (should start at 8)
+      9. Next item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li>First part</li>
+      <li>Second part</li>
+      </ol>
+
+      <p>Some interrupting text</p>
+
+      <ol start="8">
+      <li>Continuation (should start at 8)</li>
+      <li>Next item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_with_nested_lists
+    markdown = <<-Markdown.strip_heredoc
+      5. First item
+         1. Nested item (should start at 1)
+         2. Another nested
+      6. Second item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li>First item
+      <ol>
+      <li>Nested item (should start at 1)</li>
+      <li>Another nested</li>
+      </ol></li>
+      <li>Second item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_mixed_with_unordered
+    markdown = <<-Markdown.strip_heredoc
+      5. Ordered item
+      6. Another ordered
+
+      * Unordered item
+      * Another unordered
+
+      10. New ordered list
+      11. Continues
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li>Ordered item</li>
+      <li>Another ordered</li>
+      </ol>
+
+      <ul>
+      <li>Unordered item</li>
+      <li>Another unordered</li>
+      </ul>
+
+      <ol start="10">
+      <li>New ordered list</li>
+      <li>Continues</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_with_block_content
+    markdown = <<-Markdown.strip_heredoc
+      5. First item with paragraph
+
+         This is a continuation paragraph.
+
+      6. Second item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li><p>First item with paragraph</p>
+
+      <p>This is a continuation paragraph.</p></li>
+      <li><p>Second item</p></li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
+  end
+
+  def test_ordered_list_start_attribute_with_indentation
+    markdown = <<-Markdown.strip_heredoc
+         5. Indented list
+         6. Another item
+    Markdown
+
+    expected = <<-HTML.chomp.strip_heredoc
+      <ol start="5">
+      <li>Indented list</li>
+      <li>Another item</li>
+      </ol>
+    HTML
+
+    assert_equal expected, render(markdown)
   end
 end

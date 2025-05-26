@@ -1579,6 +1579,38 @@ prefix_oli(uint8_t *data, size_t size)
 	return i + 2;
 }
 
+/* prefix_oli_with_start • returns ordered list item prefix and extracts start number */
+static size_t
+prefix_oli_with_start(uint8_t *data, size_t size, int *start_num)
+{
+	size_t i = 0;
+	int num = 0;
+
+	if (i < size && data[i] == ' ') i++;
+	if (i < size && data[i] == ' ') i++;
+	if (i < size && data[i] == ' ') i++;
+
+	if (i >= size || data[i] < '0' || data[i] > '9')
+		return 0;
+
+	/* Extract the number */
+	while (i < size && data[i] >= '0' && data[i] <= '9') {
+		num = num * 10 + (data[i] - '0');
+		i++;
+	}
+
+	if (i + 1 >= size || data[i] != '.' || data[i + 1] != ' ')
+		return 0;
+
+	if (is_next_headerline(data + i, size - i))
+		return 0;
+
+	if (start_num)
+		*start_num = num;
+
+	return i + 2;
+}
+
 /* prefix_uli • returns unordered list item prefix */
 static size_t
 prefix_uli(uint8_t *data, size_t size)
@@ -1851,7 +1883,7 @@ parse_blockcode(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t 
 /* parse_listitem • parsing of a single list item */
 /*	assuming initial prefix is already removed */
 static size_t
-parse_listitem(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size, int *flags)
+parse_listitem(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size, int *flags, int start_num)
 {
 	struct buf *work = 0, *inter = 0;
 	size_t beg = 0, end, pre, sublist = 0, orgpre = 0, i;
@@ -1937,7 +1969,7 @@ parse_listitem(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t s
 				sublist = work->size;
 		}
 		/* joining only indented stuff after empty lines */
-		else if (in_empty && i < 4 && data[beg] != '\t') {
+		else if (in_empty && i <= orgpre && data[beg] != '\t') {
 			*flags |= MKD_LI_END;
 			break;
 		}
@@ -1968,7 +2000,15 @@ parse_listitem(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t s
 	} else {
 		/* intermediate render of inline li */
 		if (sublist && sublist < work->size) {
-			parse_inline(inter, rndr, work->data, sublist);
+			/* If there's a sublist, the inline part (work->data up to sublist)
+			 * might end with a newline. We need to trim that newline *before* 
+			 * rendering, so the sublist doesn't get an extra preceding newline
+			 * from rndr_list. */
+			 size_t inline_size = sublist;
+			 if (inline_size > 0 && work->data[inline_size - 1] == '\n') {
+				 inline_size--;
+			 }
+			parse_inline(inter, rndr, work->data, inline_size);
 			parse_block(inter, rndr, work->data + sublist, work->size - sublist);
 		}
 		else
@@ -1977,7 +2017,7 @@ parse_listitem(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t s
 
 	/* render of li itself */
 	if (rndr->cb.listitem)
-		rndr->cb.listitem(ob, inter, *flags, rndr->opaque);
+		rndr->cb.listitem(ob, inter, *flags, start_num, rndr->opaque);
 
 	rndr_popbuf(rndr, BUFFER_SPAN);
 	rndr_popbuf(rndr, BUFFER_SPAN);
@@ -1991,11 +2031,20 @@ parse_list(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size,
 {
 	struct buf *work = 0;
 	size_t i = 0, j;
+	int start_num = 1;
 
 	work = rndr_newbuf(rndr, BUFFER_BLOCK);
 
+	/* For ordered lists, extract the start number from the first item */
+	if (flags & MKD_LIST_ORDERED) {
+		size_t prefix_len = prefix_oli_with_start(data, size, &start_num);
+		if (prefix_len == 0) {
+			start_num = 1; /* fallback to 1 if extraction fails */
+		}
+	}
+
 	while (i < size) {
-		j = parse_listitem(work, rndr, data + i, size - i, &flags);
+		j = parse_listitem(work, rndr, data + i, size - i, &flags, start_num);
 		i += j;
 
 		if (!j || (flags & MKD_LI_END))
@@ -2003,7 +2052,7 @@ parse_list(struct buf *ob, struct sd_markdown *rndr, uint8_t *data, size_t size,
 	}
 
 	if (rndr->cb.list)
-		rndr->cb.list(ob, work, flags, rndr->opaque);
+		rndr->cb.list(ob, work, flags, start_num, rndr->opaque);
 	rndr_popbuf(rndr, BUFFER_BLOCK);
 	return i;
 }
